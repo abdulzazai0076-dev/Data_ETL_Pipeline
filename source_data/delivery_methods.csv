@@ -1,0 +1,3 @@
+id,method_name,courier_name,shipping_days
+100,Next Day,DHL,1
+200,Standard,Evri,3

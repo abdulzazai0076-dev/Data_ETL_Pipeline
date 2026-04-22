@@ -1,0 +1,9 @@
+id,category_id,product_name,manufacturer,price
+10,1,32 inch 4K,LG,299.99
+11,1,48 inch 4k HDR,Sony,499.99
+12,1,60 inch OLED,Samsung,799.99
+20,2,Headphones,Sony,39.99
+21,2,Bluetooth Speaker,Bose,99.99
+22,2,HiFi System,Panasonic,149.99
+30,3,2 Slice Toaster,Kenwood,59.99
+31,3,4 Slice Toaster,Dualit,149.99

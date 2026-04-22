@@ -1,0 +1,135 @@
+[
+    {
+        "order_id": 1,
+        "customer_id": 1000,
+        "delivery_method_id": 100,
+        "order_date": "2021-01-01",
+        "items": [
+            {
+                "item_id": 10,
+                "product_id": 20,
+                "product_name": "Headphones",
+                "quantity": 2
+            },
+            {
+                "item_id": 11,
+                "product_id": 21,
+                "product_name": "Bluetooth Speaker",
+                "quantity": 1
+            }
+        ],
+        "metadata": {
+            "source": "pos_system_v2",
+            "processed_at": "2026-03-15T10:00:00Z"
+        }
+    },
+    {
+        "order_id": 2,
+        "customer_id": 1000,
+        "delivery_method_id": 200,
+        "order_date": "2021-02-01",
+        "items": [
+            {
+                "item_id": 20,
+                "product_id": 12,
+                "product_name": "60 inch OLED",
+                "quantity": 1
+            }
+        ],
+        "metadata": {
+            "source": "pos_system_v2",
+            "processed_at": "2026-03-15T10:00:00Z"
+        }
+    },
+    {
+        "order_id": 3,
+        "customer_id": 2000,
+        "delivery_method_id": 200,
+        "order_date": "2022-02-01",
+        "items": [
+            {
+                "item_id": 30,
+                "product_id": 30,
+                "product_name": "2 Slice Toaster",
+                "quantity": 3,
+                "special_instructions": "Fragile handling required"
+            }
+        ],
+        "metadata": {
+            "source": "pos_system_v2",
+            "processed_at": "2026-03-15T10:00:00Z"
+        }
+    },
+    {
+        "order_id": 4,
+        "customer_id": 3000,
+        "delivery_method_id": 200,
+        "order_date": "2022-02-01",
+        "items": [
+            {
+                "item_id": 40,
+                "product_id": 31,
+                "product_name": "4 Slice Toaster",
+                "quantity": 1
+            },
+            {
+                "item_id": 41,
+                "product_id": 11,
+                "product_name": "48 inch 4k HDR",
+                "quantity": 1
+            }
+        ],
+        "metadata": {
+            "source": "pos_system_v2",
+            "processed_at": "2026-03-15T10:00:00Z"
+        }
+    },
+    {
+        "order_id": 5,
+        "customer_id": 4000,
+        "delivery_method_id": 100,
+        "order_date": "2022-03-01",
+        "items": [
+            {
+                "item_id": 50,
+                "product_id": 11,
+                "product_name": "48 inch 4k HDR",
+                "quantity": 1
+            }
+        ],
+        "metadata": {
+            "source": "pos_system_v2",
+            "processed_at": "2026-03-15T10:00:00Z"
+        }
+    },
+    {
+        "order_id": 6,
+        "customer_id": 4000,
+        "delivery_method_id": 100,
+        "order_date": "2022-03-01",
+        "items": [
+            {
+                "item_id": 60,
+                "product_id": 22,
+                "product_name": "HiFi System",
+                "quantity": 1
+            },
+            {
+                "item_id": 62,
+                "product_id": 22,
+                "product_name": "HiFi System",
+                "quantity": 1
+            },
+            {
+                "item_id": 61,
+                "product_id": 10,
+                "product_name": "32 inch 4K",
+                "quantity": 2
+            }
+        ],
+        "metadata": {
+            "source": "pos_system_v2",
+            "processed_at": "2026-03-15T10:00:00Z"
+        }
+    }
+]
