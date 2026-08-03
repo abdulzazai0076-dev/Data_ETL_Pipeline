@@ -1,4 +1,3 @@
-import re
 from typing import Dict, List
 
 import pandas as pd
@@ -53,7 +52,6 @@ DIMENSION_BOUNDS = {
     "dim_delivery_methods": {"shipping_days": 0},
 }
 
-DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 DATE_FORMAT_COLUMNS = [
     ("fact_order_items", "order_date"),
     ("dim_date", "date"),
@@ -106,7 +104,14 @@ def validate_foreign_key(source_df: pd.DataFrame, fk_col: str, dim_df: pd.DataFr
     fact_keys = source_df[source_df[fk_col].notna()][fk_col].unique()
     orphans = set(fact_keys) - valid_keys
     if orphans:
-        return [f"{relation_name}: invalid foreign key value(s) {sorted(orphans)}"]
+        # Normalize NumPy scalars to native Python types (cleaner repr) and sort by
+        # string form so mixed-type orphan values (e.g. an int and a str) can't
+        # raise a TypeError from comparing incomparable types.
+        normalized = sorted(
+            (v.item() if hasattr(v, "item") else v for v in orphans),
+            key=str,
+        )
+        return [f"{relation_name}: invalid foreign key value(s) {normalized}"]
     return []
 
 
@@ -120,12 +125,19 @@ def validate_measures_numeric(df: pd.DataFrame, measure_cols: List[str], table_n
 
 
 def validate_measure_bounds(df: pd.DataFrame, rules: Dict[str, float], table_name: str) -> List[str]:
-    """Check numeric columns respect an inclusive lower bound (e.g. no negative prices)."""
+    """Check numeric columns respect an inclusive lower bound (e.g. no negative prices).
+
+    Non-numeric values are flagged explicitly rather than silently ignored: coercing
+    them to NaN would make `NaN < min_value` evaluate to False, hiding bad data.
+    """
     errors = []
     for col, min_value in rules.items():
         if col not in df.columns:
             continue
         numeric = pd.to_numeric(df[col], errors="coerce")
+        non_numeric_count = int((numeric.isna() & df[col].notna()).sum())
+        if non_numeric_count > 0:
+            errors.append(f"{table_name}: {non_numeric_count} non-numeric value(s) in '{col}'")
         violation_count = int((numeric < min_value).sum())
         if violation_count > 0:
             errors.append(
@@ -165,15 +177,20 @@ def validate_fact_calculated_fields(fact_df: pd.DataFrame) -> List[str]:
 
 
 def validate_date_format(df: pd.DataFrame, column: str, table_name: str) -> List[str]:
-    """Check date-like column values match YYYY-MM-DD (per project assumptions)."""
+    """Check date-like column values are valid calendar dates in YYYY-MM-DD format.
+
+    Uses strict format parsing (not just a shape regex) so calendar-invalid values
+    like "2021-13-45" are caught, not just malformed ones like "01/01/2021".
+    """
     if column not in df.columns:
         return []
     values = df[column].dropna().astype(str)
     if len(values) == 0:
         return []
-    bad_count = int((~values.str.match(DATE_PATTERN)).sum())
+    parsed = pd.to_datetime(values, format="%Y-%m-%d", errors="coerce")
+    bad_count = int(parsed.isna().sum())
     if bad_count > 0:
-        return [f"{table_name}: {bad_count} value(s) in '{column}' are not in YYYY-MM-DD format"]
+        return [f"{table_name}: {bad_count} value(s) in '{column}' are not valid YYYY-MM-DD dates"]
     return []
 
 
@@ -211,8 +228,9 @@ def validate_all(tables: Dict[str, pd.DataFrame]) -> None:
         errors += validate_dimension_uniqueness(df, pk_col, table_name)
 
     for table_name, column in DATE_FORMAT_COLUMNS:
-        if table_name == "dim_date" and len(tables.get("dim_date", [])) > 0:
-            errors += validate_date_format(tables["dim_date"], column, table_name)
+        df = tables.get(table_name)
+        if df is not None and len(df) > 0 and column in df.columns:
+            errors += validate_date_format(df, column, table_name)
 
     for table_name, rules in DIMENSION_BOUNDS.items():
         df = tables.get(table_name)
@@ -223,9 +241,12 @@ def validate_all(tables: Dict[str, pd.DataFrame]) -> None:
     for src_name, fk_col, dim_name, dim_key in DIM_FK_CHECKS:
         src_df = tables.get(src_name)
         dim_df = tables.get(dim_name)
-        if src_df is not None and dim_df is not None and len(src_df) > 0:
+        if src_df is not None and len(src_df) > 0:
             errors += validate_no_nulls(src_df, [fk_col], src_name)
-            errors += validate_foreign_key(src_df, fk_col, dim_df, dim_key, f"{src_name}.{fk_col} -> {dim_name}.{dim_key}")
+            if dim_df is not None and len(dim_df) > 0:
+                errors += validate_foreign_key(
+                    src_df, fk_col, dim_df, dim_key, f"{src_name}.{fk_col} -> {dim_name}.{dim_key}"
+                )
 
     # Fact table checks
     fact = tables["fact_order_items"]
@@ -242,7 +263,6 @@ def validate_all(tables: Dict[str, pd.DataFrame]) -> None:
             errors += validate_no_nulls(fact, FACT_SCHEMA["measures"], "fact_order_items")
             errors += validate_measure_bounds(fact, FACT_MEASURE_RULES, "fact_order_items")
             errors += validate_fact_calculated_fields(fact)
-            errors += validate_date_format(fact, "order_date", "fact_order_items")
 
             # fact -> dimension foreign keys
             for fact_name, fk_col, dim_name, dim_key in FK_CHECKS:

@@ -132,6 +132,7 @@ def test_orphan_dimension_to_dimension_fk_raises():
 def test_negative_quantity_raises():
     tables = make_valid_tables()
     tables["fact_order_items"].loc[0, "quantity"] = -1
+    tables["fact_order_items"].loc[0, "line_amount"] = -1 * tables["fact_order_items"].loc[0, "unit_price"]
     with pytest.raises(ValidationError, match="quantity.*below the allowed minimum"):
         validate_all(tables)
 
@@ -140,6 +141,7 @@ def test_zero_quantity_raises():
     """Quantity must be at least 1 - a zero-quantity line item makes no sense."""
     tables = make_valid_tables()
     tables["fact_order_items"].loc[0, "quantity"] = 0
+    tables["fact_order_items"].loc[0, "line_amount"] = 0
     with pytest.raises(ValidationError, match="quantity.*below the allowed minimum"):
         validate_all(tables)
 
@@ -178,7 +180,7 @@ def test_null_unit_price_does_not_silently_pass():
     in the line_amount check."""
     tables = make_valid_tables()
     tables["fact_order_items"].loc[0, "unit_price"] = None
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="null value.*unit_price"):
         validate_all(tables)
 
 
@@ -195,6 +197,63 @@ def test_invalid_date_format_raises():
     tables["fact_order_items"].loc[0, "order_date"] = "01/01/2021"
     with pytest.raises(ValidationError, match="YYYY-MM-DD"):
         validate_all(tables)
+
+
+def test_calendar_invalid_date_raises():
+    """A value that matches the YYYY-MM-DD shape but isn't a real date (e.g. month
+    13) must still be caught - format checks alone aren't enough."""
+    tables = make_valid_tables()
+    tables["fact_order_items"].loc[0, "order_date"] = "2021-13-45"
+    with pytest.raises(ValidationError, match="YYYY-MM-DD"):
+        validate_all(tables)
+
+
+def test_dim_date_invalid_format_raises():
+    """dim_date.date must also be checked, not just fact_order_items.order_date."""
+    tables = make_valid_tables()
+    tables["dim_date"].loc[0, "date"] = "not-a-date"
+    with pytest.raises(ValidationError, match="dim_date.*YYYY-MM-DD"):
+        validate_all(tables)
+
+
+def test_empty_fact_table_raises():
+    """The fact table takes a different code path than dimensions - cover it directly."""
+    tables = make_valid_tables()
+    tables["fact_order_items"] = tables["fact_order_items"].iloc[0:0]
+    with pytest.raises(ValidationError, match="fact_order_items: table is empty"):
+        validate_all(tables)
+
+
+def test_non_numeric_dimension_bound_value_raises():
+    """A non-numeric price must be flagged, not silently coerced to NaN and ignored
+    by the '< min_value' bounds check."""
+    tables = make_valid_tables()
+    tables["dim_products"]["price"] = tables["dim_products"]["price"].astype(object)
+    tables["dim_products"].loc[0, "price"] = "not_a_price"
+    with pytest.raises(ValidationError, match="non-numeric value.*'price'"):
+        validate_all(tables)
+
+
+def test_mixed_type_orphan_foreign_keys_do_not_crash():
+    """Orphan FK values of different types (e.g. int and str) must be reported as a
+    normal ValidationError, not crash with a TypeError from sorting incomparable types."""
+    tables = make_valid_tables()
+    tables["fact_order_items"]["product_id"] = tables["fact_order_items"]["product_id"].astype(object)
+    tables["fact_order_items"].loc[0, "product_id"] = 9999
+    tables["fact_order_items"].loc[1, "product_id"] = "BADID"
+    with pytest.raises(ValidationError, match="invalid foreign key value"):
+        validate_all(tables)
+
+
+def test_orphan_foreign_key_message_has_clean_repr():
+    """Orphan values should render as plain Python values (e.g. `9999`), not
+    NumPy scalar reprs (e.g. `np.int64(9999)`)."""
+    tables = make_valid_tables()
+    tables["fact_order_items"].loc[0, "product_id"] = 9999
+    with pytest.raises(ValidationError) as exc_info:
+        validate_all(tables)
+    assert "np.int64" not in str(exc_info.value)
+    assert "[9999]" in str(exc_info.value)
 
 
 def test_multiple_errors_reported_together():
