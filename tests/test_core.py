@@ -1,7 +1,13 @@
 """Test core transformations and calculations."""
 
 import pandas as pd
-from transform import flatten_orders, create_fact_order_items, create_dim_products
+from transform import (
+    create_dim_customers,
+    create_dim_products,
+    create_fact_order_items,
+    drop_duplicate_rows,
+    flatten_orders,
+)
 
 
 def test_flatten_orders():
@@ -62,7 +68,7 @@ def test_line_amount_calculation():
 
 
 def test_products_dimension():
-    """Test product dimension creates correctly."""
+    """Test product dimension creates correctly, enriched with category_name."""
     products_df = pd.DataFrame({
         "id": [1, 2],
         "product_name": ["Widget", "Gadget"],
@@ -70,10 +76,59 @@ def test_products_dimension():
         "price": ["19.99", "29.99"],
         "category_id": [10, 20],
     })
+    dim_categories = pd.DataFrame({
+        "category_id": [10, 20],
+        "category_name": ["Hardware", "Electronics"],
+    })
 
-    result = create_dim_products(products_df)
+    result = create_dim_products(products_df, dim_categories)
 
     assert len(result) == 2
-    assert list(result.columns) == ["product_id", "product_name", "manufacturer", "price", "category_id"]
+    assert set(result.columns) == {
+        "product_id", "product_name", "manufacturer", "price", "category_id", "category_name",
+    }
     assert result.iloc[0]["product_id"] == 1
     assert result.iloc[0]["product_name"] == "Widget"
+    assert result.iloc[0]["category_name"] == "Hardware"
+    assert result.iloc[1]["category_name"] == "Electronics"
+
+
+def test_customers_dimension_full_name():
+    """Test customers dimension is enriched with a derived full_name."""
+    customers_df = pd.DataFrame({
+        "id": [1, 2],
+        "first_name": ["Ada", "Grace"],
+        "last_name": ["Lovelace", "Hopper"],
+        "city": ["London", "New York"],
+    })
+
+    result = create_dim_customers(customers_df)
+
+    assert result.iloc[0]["full_name"] == "Ada Lovelace"
+    assert result.iloc[1]["full_name"] == "Grace Hopper"
+
+
+def test_drop_duplicate_rows_removes_exact_duplicates():
+    """Exact duplicate rows (every column identical) should be removed, keeping the first."""
+    df = pd.DataFrame({
+        "id": [1, 2, 1],
+        "name": ["A", "B", "A"],
+    })
+
+    result = drop_duplicate_rows(df, "test_table")
+
+    assert len(result) == 2
+    assert list(result["id"]) == [1, 2]
+
+
+def test_drop_duplicate_rows_keeps_same_key_different_value_rows():
+    """Rows that share a key but differ in other columns are NOT deduped - that's a
+    real data conflict that validation.py should catch, not silently resolve here."""
+    df = pd.DataFrame({
+        "id": [1, 1],
+        "name": ["A", "B"],
+    })
+
+    result = drop_duplicate_rows(df, "test_table")
+
+    assert len(result) == 2

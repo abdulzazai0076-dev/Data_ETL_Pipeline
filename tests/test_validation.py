@@ -12,6 +12,7 @@ def make_valid_tables():
         "first_name": ["Ada", "Grace"],
         "last_name": ["Lovelace", "Hopper"],
         "city": ["London", "New York"],
+        "full_name": ["Ada Lovelace", "Grace Hopper"],
     })
     dim_categories = pd.DataFrame({
         "category_id": [1],
@@ -23,6 +24,7 @@ def make_valid_tables():
         "manufacturer": ["Acme", "Acme"],
         "price": [9.99, 19.99],
         "category_id": [1, 1],
+        "category_name": ["Widgets", "Widgets"],
     })
     dim_delivery_methods = pd.DataFrame({
         "delivery_method_id": [100],

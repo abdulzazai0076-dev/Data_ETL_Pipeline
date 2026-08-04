@@ -4,6 +4,7 @@
 import argparse
 from pathlib import Path
 
+from aggregate import aggregate_all
 from extract import extract_all
 from load import load_all, print_summary
 from transform import transform_all
@@ -11,27 +12,31 @@ from validation import validate_all
 
 
 def run_pipeline(source_dir: Path, output_dir: Path, skip_validation: bool = False):
-    """Execute ETL pipeline: extract -> transform -> validate -> load."""
+    """Execute ETL pipeline: extract -> transform -> validate -> aggregate -> load."""
     print("\n" + "=" * 60)
     print("ETL PIPELINE")
     print("=" * 60)
     
-    print("\n[1/4] EXTRACT")
+    print("\n[1/5] EXTRACT")
     extracted = extract_all(source_dir)
     
-    print("\n[2/4] TRANSFORM")
+    print("\n[2/5] TRANSFORM")
     transformed = transform_all(extracted)
     
-    print("\n[3/4] VALIDATE")
+    print("\n[3/5] VALIDATE")
     if not skip_validation:
         validate_all(transformed)
     else:
         print("  WARNING: Validation skipped")
     
-    print("\n[4/4] LOAD")
-    load_all(transformed, output_dir)
+    print("\n[4/5] AGGREGATE")
+    aggregated = aggregate_all(transformed)
     
-    print_summary(transformed)
+    print("\n[5/5] LOAD")
+    all_tables = {**transformed, **aggregated}
+    load_all(all_tables, output_dir)
+    
+    print_summary(all_tables)
     
     print("=" * 60)
     print("ETL COMPLETED SUCCESSFULLY")
