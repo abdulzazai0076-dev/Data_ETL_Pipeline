@@ -10,9 +10,9 @@ class ValidationError(Exception):
 
 # Schema definitions
 DIMENSIONS = {
-    "dim_customers": ["customer_id", "first_name", "last_name", "city"],
+    "dim_customers": ["customer_id", "first_name", "last_name", "city", "full_name"],
     "dim_categories": ["category_id", "category_name"],
-    "dim_products": ["product_id", "product_name", "manufacturer", "price", "category_id"],
+    "dim_products": ["product_id", "product_name", "manufacturer", "price", "category_id", "category_name"],
     "dim_delivery_methods": ["delivery_method_id", "method_name", "courier_name", "shipping_days"],
     "dim_date": ["date_key", "date", "year", "month", "day", "day_of_week"],
 }

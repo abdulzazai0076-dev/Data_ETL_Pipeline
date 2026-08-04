@@ -1,0 +1,4 @@
+category_id,category_name,total_quantity,total_revenue,line_item_count,distinct_order_count
+1,Televisions,5,2399.95,4,4
+2,Audio,5,479.95,4,2
+3,Toasters,4,329.96,2,2

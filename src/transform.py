@@ -4,6 +4,20 @@ from typing import Dict
 import pandas as pd
 
 
+def drop_duplicate_rows(df: pd.DataFrame, table_name: str) -> pd.DataFrame:
+    """Remove exact duplicate rows (every column identical).
+
+    Rows that share a key but differ in other columns are left alone -
+    validation.py's uniqueness checks catch those as a real data quality issue.
+    """
+    before = len(df)
+    deduped = df.drop_duplicates(keep="first").reset_index(drop=True)
+    removed = before - len(deduped)
+    if removed > 0:
+        print(f"  Deduped {table_name}: removed {removed} exact duplicate row(s)")
+    return deduped
+
+
 def flatten_orders(orders_df: pd.DataFrame) -> pd.DataFrame:
     """Flatten nested orders into order-item-level rows."""
     flattened_rows = []
@@ -43,9 +57,10 @@ def flatten_orders(orders_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def create_dim_customers(customers_df: pd.DataFrame) -> pd.DataFrame:
-    """Create customers dimension."""
+    """Create customers dimension, enriched with a derived full_name."""
     dim = customers_df[["id", "first_name", "last_name", "city"]].copy()
     dim.columns = ["customer_id", "first_name", "last_name", "city"]
+    dim["full_name"] = dim["first_name"].str.cat(dim["last_name"], sep=" ")
     return dim
 
 
@@ -56,11 +71,13 @@ def create_dim_categories(categories_df: pd.DataFrame) -> pd.DataFrame:
     return dim
 
 
-def create_dim_products(products_df: pd.DataFrame) -> pd.DataFrame:
-    """Create products dimension."""
+def create_dim_products(products_df: pd.DataFrame, dim_categories: pd.DataFrame) -> pd.DataFrame:
+    """Create products dimension, enriched with category_name denormalized from
+    dim_categories so reporting queries don't need an extra join."""
     dim = products_df[["id", "product_name", "manufacturer", "price", "category_id"]].copy()
     dim.columns = ["product_id", "product_name", "manufacturer", "price", "category_id"]
     dim["price"] = pd.to_numeric(dim["price"], errors="coerce")
+    dim = dim.merge(dim_categories[["category_id", "category_name"]], on="category_id", how="left")
     return dim
 
 
@@ -130,18 +147,22 @@ def create_fact_order_items(
 
 def transform_all(extracted: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
     """Transform raw data into dimensional model."""
-    dim_customers = create_dim_customers(extracted["customers"])
-    dim_categories = create_dim_categories(extracted["categories"])
-    dim_products = create_dim_products(extracted["products"])
-    dim_delivery_methods = create_dim_delivery_methods(extracted["delivery_methods"])
+    customers = drop_duplicate_rows(extracted["customers"], "customers")
+    categories = drop_duplicate_rows(extracted["categories"], "categories")
+    products = drop_duplicate_rows(extracted["products"], "products")
+    delivery_methods = drop_duplicate_rows(extracted["delivery_methods"], "delivery_methods")
+
+    dim_customers = create_dim_customers(customers)
+    dim_categories = create_dim_categories(categories)
+    dim_products = create_dim_products(products, dim_categories)
+    dim_delivery_methods = create_dim_delivery_methods(delivery_methods)
 
     flattened_orders = flatten_orders(extracted["orders"])
+    flattened_orders = drop_duplicate_rows(flattened_orders, "flattened_orders")
     dim_date = create_dim_date(flattened_orders["order_date"])
     fact_order_items = create_fact_order_items(flattened_orders, dim_products, dim_delivery_methods)
 
-    print(f"  Created 5 dimensions + 1 fact table (10 items total)")
-    
-    return {
+    tables = {
         "dim_customers": dim_customers,
         "dim_categories": dim_categories,
         "dim_products": dim_products,
@@ -149,3 +170,7 @@ def transform_all(extracted: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]
         "dim_date": dim_date,
         "fact_order_items": fact_order_items,
     }
+    dimension_count = len(tables) - 1
+    print(f"  Created {dimension_count} dimensions + 1 fact table ({len(fact_order_items)} items total)")
+
+    return tables

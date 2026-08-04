@@ -1,5 +1,5 @@
-customer_id,first_name,last_name,city
-1000,Joe,Bloggs,Liverpool
-2000,John,Smith,Manchester
-3000,Jane,Doe,London
-4000,Jessica,Jones,Cardiff
+customer_id,first_name,last_name,city,full_name
+1000,Joe,Bloggs,Liverpool,Joe Bloggs
+2000,John,Smith,Manchester,John Smith
+3000,Jane,Doe,London,Jane Doe
+4000,Jessica,Jones,Cardiff,Jessica Jones
